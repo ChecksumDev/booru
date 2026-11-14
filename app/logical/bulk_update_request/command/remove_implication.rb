@@ -27,7 +27,7 @@ class BulkUpdateRequest::Command::RemoveImplication < BulkUpdateRequest::Command
     "remove implication [[#{@antecedent}]] -> [[#{@consequent}]]"
   end
 
-  def validate(context:, errors:)
+  def validate(context:, errors:, **)
     if existing_implication.nil?
       errors.add(:base, "Can't remove implication [[#{@antecedent}]] -> [[#{@consequent}]] (implication doesn't exist)") unless context == :approval
     else

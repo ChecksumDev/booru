@@ -32,7 +32,7 @@ class BulkUpdateRequest::Command::Deprecate < BulkUpdateRequest::Command
     @affected_tag ||= Tag.find_by_name(@tag_name)
   end
 
-  def validate(context:, errors:)
+  def validate(context:, errors:, **)
     if context == :approval
       # ignore already deprecated tags and missing wikis when approving a tag deprecation
     elsif affected_tag.nil?

@@ -27,7 +27,7 @@ class BulkUpdateRequest::Command::RemoveAlias < BulkUpdateRequest::Command
     "remove alias [[#{@antecedent}]] -> [[#{@consequent}]]"
   end
 
-  def validate(context:, errors:)
+  def validate(context:, errors:, **)
     if context == :approval
       # ignore non-existing aliases when approving a BUR
     elsif existing_alias.nil?

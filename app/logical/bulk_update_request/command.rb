@@ -33,7 +33,8 @@ class BulkUpdateRequest::Command
   #
   # @param context [:request, :approval] `:request` when the BUR is created or edited; `:approval` when it is approved. Some validations only run on `:request`.
   # @param errors [ActiveModel::Errors] error collector to add messages to
-  def validate(context:, errors:)
+  # @param approver [User, nil] the user approving the BUR, when `context` is `:approval`
+  def validate(context:, errors:, **)
     raise NotImplementedError
   end
 

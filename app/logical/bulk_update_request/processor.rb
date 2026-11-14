@@ -45,7 +45,7 @@ class BulkUpdateRequest::Processor
             errors.add(:base, "Can't approve #{command.to_dtext} (requires #{User.level_string(command.approval_level)})")
           end
 
-          command.validate(context: validation_context, errors: errors)
+          command.validate(context: validation_context, errors: errors, approver: approver)
         end
 
         raise ActiveRecord::Rollback

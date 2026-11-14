@@ -442,11 +442,70 @@ class BulkUpdateRequestsControllerTest < ActionDispatch::IntegrationTest
           create(:tag_implication, antecedent_name: "char1a", consequent_name: "copyright1")
           @bulk_update_request = create(:bulk_update_request, script: "alias char1a -> char1b")
 
-          post_auth approve_bulk_update_request_path(@bulk_update_request), @mod
+          post_auth approve_bulk_update_request_path(@bulk_update_request, format: :js), @mod
 
-          assert_response 403
+          assert_includes(response.body, "Danbooru.Notice.error")
+          assert_includes(response.body, "[[char1a]] has implications; requires Admin")
           assert_equal("pending", @bulk_update_request.reload.status)
           assert_equal(false, TagAlias.exists?(antecedent_name: "char1a", consequent_name: "char1b"))
+        end
+
+        should "fail when aliasing a small banned artist to a large artist" do
+          create(:tag, name: "art1a", category: Tag.categories.artist, post_count: 10)
+          create(:tag, name: "art1b", category: Tag.categories.artist, post_count: 1000)
+          create(:artist, name: "art1a", is_banned: true)
+          artist = create(:artist, name: "art1b")
+          @bulk_update_request = create(:bulk_update_request, script: "alias art1a -> art1b")
+
+          post_auth approve_bulk_update_request_path(@bulk_update_request, format: :js), @mod
+
+          assert_includes(response.body, "Danbooru.Notice.error")
+          assert_includes(response.body, "[[art1a]] is a banned artist; requires Admin")
+          assert_equal("pending", @bulk_update_request.reload.status)
+          assert_equal(false, artist.reload.is_banned?)
+        end
+
+        should "fail when aliasing a small tag with a large cosplay tag to a large tag" do
+          create(:tag, name: "char1a", category: Tag.categories.character, post_count: 10)
+          create(:tag, name: "char1b", category: Tag.categories.character, post_count: 1000)
+          create(:tag, name: "char1a_(cosplay)", category: Tag.categories.character, post_count: 1000)
+          @bulk_update_request = create(:bulk_update_request, script: "alias char1a -> char1b")
+
+          post_auth approve_bulk_update_request_path(@bulk_update_request, format: :js), @mod
+
+          assert_includes(response.body, "Danbooru.Notice.error")
+          assert_includes(response.body, "[[char1a_(cosplay)]] is too large; requires Admin")
+          assert_equal("pending", @bulk_update_request.reload.status)
+          assert_equal(false, TagAlias.exists?(antecedent_name: "char1a", consequent_name: "char1b"))
+        end
+
+        should "succeed when aliasing a small tag with a small cosplay tag to a large tag" do
+          create(:tag, name: "char1a", category: Tag.categories.character, post_count: 10)
+          create(:tag, name: "char1b", category: Tag.categories.character, post_count: 1000)
+          create(:tag, name: "char1a_(cosplay)", category: Tag.categories.character, post_count: 5)
+          @bulk_update_request = create(:bulk_update_request, script: "alias char1a -> char1b")
+
+          perform_enqueued_jobs do
+            post_auth approve_bulk_update_request_path(@bulk_update_request), @mod
+          end
+
+          assert_redirected_to bulk_update_request_path(@bulk_update_request)
+          assert_equal("approved", @bulk_update_request.reload.status)
+          assert_equal(true, TagAlias.exists?(antecedent_name: "char1a", consequent_name: "char1b", status: "active"))
+        end
+
+        should "fail when aliasing a small artist with a large style tag to a large artist" do
+          create(:tag, name: "art1a", category: Tag.categories.artist, post_count: 10)
+          create(:tag, name: "art1b", category: Tag.categories.artist, post_count: 1000)
+          create(:tag, name: "art1a_(style)", category: Tag.categories.general, post_count: 1000)
+          @bulk_update_request = create(:bulk_update_request, script: "alias art1a -> art1b")
+
+          post_auth approve_bulk_update_request_path(@bulk_update_request, format: :js), @mod
+
+          assert_includes(response.body, "Danbooru.Notice.error")
+          assert_includes(response.body, "[[art1a_(style)]] is too large; requires Admin")
+          assert_equal("pending", @bulk_update_request.reload.status)
+          assert_equal(false, TagAlias.exists?(antecedent_name: "art1a", consequent_name: "art1b"))
         end
 
         should "fail when an earlier line changes the small tag's category before aliasing it to a large tag" do

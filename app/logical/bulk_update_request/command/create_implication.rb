@@ -23,7 +23,7 @@ class BulkUpdateRequest::Command::CreateImplication < BulkUpdateRequest::Command
     "create implication [[#{@antecedent}]] -> [[#{@consequent}]]"
   end
 
-  def validate(context:, errors:)
+  def validate(context:, errors:, **)
     tag_implication = TagImplication.new(creator: User.system, antecedent_name: @antecedent, consequent_name: @consequent, status: "active")
     tag_implication.save(context: context)
     if tag_implication.errors.present?

@@ -26,11 +26,29 @@ class BulkUpdateRequest::Command::CreateAlias < BulkUpdateRequest::Command
     "create alias [[#{@old_name}]] -> [[#{@new_name}]]"
   end
 
-  def validate(context:, errors:)
+  def validate(context:, errors:, approver:)
     tag_alias = TagAlias.new(creator: User.system, antecedent_name: @old_name, consequent_name: @new_name)
     tag_alias.save(context: context)
     if tag_alias.errors.present?
       errors.add(:base, "Can't create alias [[#{tag_alias.antecedent_name}]] -> [[#{tag_alias.consequent_name}]] (#{tag_alias.errors.full_messages.join("; ")})")
+    end
+
+    # Aliasing also moves the old tag's implications and *_(cosplay) and *_(style) tags to the new tag, and copies the
+    # old artist's ban to the new artist (see TagMover). Only admins can do this to big tags. Checked here instead of in
+    # `approval_level` because it needs extra queries.
+    return unless context == :approval && !approver.is_admin? && old_tag.present? && new_tag.present? && !new_tag.empty? && !new_tag.is_small_tag?
+
+    cosplay_tag = Tag.find_by_name("#{old_tag.name}_(cosplay)")
+    style_tag = Tag.find_by_name("#{old_tag.name}_(style)") if old_tag.artist?
+
+    if old_tag.antecedent_implications.exists?
+      errors.add(:base, "Can't approve #{to_dtext} ([[#{old_tag.name}]] has implications; requires Admin)")
+    elsif cosplay_tag.present? && !cosplay_tag.is_small_tag?
+      errors.add(:base, "Can't approve #{to_dtext} ([[#{cosplay_tag.name}]] is too large; requires Admin)")
+    elsif style_tag.present? && !style_tag.is_small_tag?
+      errors.add(:base, "Can't approve #{to_dtext} ([[#{style_tag.name}]] is too large; requires Admin)")
+    elsif old_tag.artist? && old_tag.artist&.is_banned?
+      errors.add(:base, "Can't approve #{to_dtext} ([[#{old_tag.name}]] is a banned artist; requires Admin)")
     end
   end
 
@@ -54,11 +72,9 @@ class BulkUpdateRequest::Command::CreateAlias < BulkUpdateRequest::Command
     new_is_small = new.blank? || new.empty? || new.is_small_tag?
     return User::Levels::MODERATOR if old_is_small && new_is_small
 
-    # Aliasing also changes the new tag's category if it's general and the old tag isn't, and moves the old tag's
-    # implications to the new tag. Only allow this for small new tags.
+    # Aliasing also changes the new tag's category if it's general and the old tag isn't. Only allow this for small new tags.
     changes_new_category = old.present? && new.present? && !old.general? && new.general?
-    moves_implications = old.present? && old.antecedent_implications.exists?
-    return User::Levels::MODERATOR if old_is_small && !changes_new_category && !moves_implications
+    return User::Levels::MODERATOR if old_is_small && !changes_new_category
 
     User::Levels::ADMIN
   end

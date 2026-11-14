@@ -24,7 +24,7 @@ class BulkUpdateRequest::Command::Category < BulkUpdateRequest::Command
     "category [[#{@tag_name}]] -> #{@category_name}"
   end
 
-  def validate(context:, errors:)
+  def validate(context:, errors:, **)
     if tag.nil?
       errors.add(:base, "Can't change the category of [[#{@tag_name}]] to #{@category_name} ([[#{@tag_name}]] doesn't exist)")
     elsif category.nil?

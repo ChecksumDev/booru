@@ -27,7 +27,7 @@ class BulkUpdateRequest::Command::Undeprecate < BulkUpdateRequest::Command
     @affected_tag ||= Tag.find_by_name(@tag_name)
   end
 
-  def validate(context:, errors:)
+  def validate(context:, errors:, **)
     if context == :approval
       # ignore already undeprecated tags when removing a tag deprecation
     elsif affected_tag.nil?
